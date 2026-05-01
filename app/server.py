@@ -249,7 +249,18 @@ def process_upload(session_id: str, token: str, pdf_path: Path, filename: str) -
     state = get_or_create_session(session_id)
     try:
         set_state(state, status="processing", step="Parsing", progress=35, message="Reading FOCA tables and flight remarks.")
-        summary = parse_pdf_to_summary(pdf_path, source_filename=filename)
+
+        def update_parse_progress(page_number: int, total_pages: int) -> None:
+            progress = 35 + int((page_number / max(total_pages, 1)) * 42)
+            set_state(
+                state,
+                status="processing",
+                step="Parsing",
+                progress=min(progress, 78),
+                message=f"Reading FOCA page {page_number} of {total_pages}.",
+            )
+
+        summary = parse_pdf_to_summary(pdf_path, source_filename=filename, progress_callback=update_parse_progress)
 
         set_state(state, status="processing", step="Building analytics", progress=82, message="Calculating routes, PIC XC, aircraft, and registrations.")
         target_dir = session_dir(session_id)

@@ -96,11 +96,11 @@ The Compose deployment uses the published Docker Hub image, an unprivileged Ngin
 
 ## Session And Privacy Model
 
-- Uploaded PDFs are stored per browser session under `data/sessions/`.
+- Uploaded PDFs are stored per browser session in the `tl-logbook-dashboard-data` Docker volume.
 - A required HTTP-only session cookie keeps active users isolated.
 - The dashboard does not include analytics tracking or advertising cookies.
 - Users can clear their active session from the UI.
-- Runtime `data/` is gitignored and should not be committed.
+- Runtime `data/` is gitignored for local development artifacts and should not be committed.
 
 ## Legal Hosting Notes
 

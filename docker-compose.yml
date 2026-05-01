@@ -18,7 +18,7 @@ services:
     mem_limit: 512m
     cpus: 1.0
     volumes:
-      - ./data:/data
+      - tl-logbook-dashboard-data:/data
     expose:
       - "8000"
     networks:
@@ -47,3 +47,6 @@ networks:
   tl-logbook-dashboard:
     ipam:
       driver: default
+
+volumes:
+  tl-logbook-dashboard-data:

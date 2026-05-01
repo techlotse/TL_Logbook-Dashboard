@@ -8,11 +8,14 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import airportsdata
+import fitz
 import pdfplumber
 
+
+ProgressCallback = Callable[[int, int], None]
 
 CUSTOM_LOCATIONS: dict[str, dict[str, Any]] = {
     "RHINO PARK": {
@@ -135,7 +138,7 @@ def looks_like_flight_row(row: list[Any]) -> bool:
     return is_location_code(row[2] if len(row) > 2 else "") and is_location_code(row[3] if len(row) > 3 else "")
 
 
-def row_year(table: list[list[Any]], page_text: str) -> int | None:
+def row_year(table: list[list[Any]], page_text: str = "") -> int | None:
     for row in table[:8]:
         if row and row[0]:
             match = re.search(r"Year:\s*(\d{4})", str(row[0]))
@@ -143,6 +146,11 @@ def row_year(table: list[list[Any]], page_text: str) -> int | None:
                 return int(match.group(1))
     match = re.search(r"Year:\s*(\d{4})", page_text or "")
     return int(match.group(1)) if match else None
+
+
+def table_contains(table: list[list[Any]], needle: str) -> bool:
+    needle = needle.casefold()
+    return any(needle in clean(cell).casefold() for row in table for cell in row if cell)
 
 
 def extract_owner(pdf: pdfplumber.PDF) -> str:
@@ -153,6 +161,149 @@ def extract_owner(pdf: pdfplumber.PDF) -> str:
         if "Logbook FOCA" in line and idx + 1 < len(lines):
             return re.sub(r"\s*\([^)]*\)", "", lines[idx + 1]).strip()
     return ""
+
+
+def group_word_lines(words: list[tuple[Any, ...]], tolerance: float = 2.0) -> list[list[tuple[Any, ...]]]:
+    lines: list[list[tuple[Any, ...]]] = []
+    for word in sorted(words, key=lambda item: (float(item[1]), float(item[0]))):
+        y0 = float(word[1])
+        if lines:
+            line_y = sum(float(item[1]) for item in lines[-1]) / len(lines[-1])
+            if abs(y0 - line_y) <= tolerance:
+                lines[-1].append(word)
+                continue
+        lines.append([word])
+    return lines
+
+
+def words_text(words: list[tuple[Any, ...]]) -> str:
+    return clean(" ".join(str(word[4]) for word in sorted(words, key=lambda item: (float(item[1]), float(item[0])))))
+
+
+def words_multiline_text(words: list[tuple[Any, ...]]) -> str:
+    return "\n".join(words_text(line) for line in group_word_lines(words) if line)
+
+
+def words_in_box(words: list[tuple[Any, ...]], x0: float, x1: float, y0: float, y1: float) -> list[tuple[Any, ...]]:
+    return [
+        word
+        for word in words
+        if x0 <= (float(word[0]) + float(word[2])) / 2 <= x1
+        and y0 <= (float(word[1]) + float(word[3])) / 2 <= y1
+    ]
+
+
+def text_in_box(words: list[tuple[Any, ...]], x0: float, x1: float, y0: float, y1: float) -> str:
+    return words_text(words_in_box(words, x0, x1, y0, y1))
+
+
+def minutes_from_word_boxes(words: list[tuple[Any, ...]], hour_box: tuple[float, float], minute_box: tuple[float, float], y: float) -> int:
+    hours = to_int(text_in_box(words, hour_box[0], hour_box[1], y - 5, y + 5))
+    minutes = to_int(text_in_box(words, minute_box[0], minute_box[1], y - 5, y + 5))
+    if hours is None and minutes is None:
+        return 0
+    return (hours or 0) * 60 + (minutes or 0)
+
+
+def owner_from_words(words: list[tuple[Any, ...]]) -> str:
+    lines = [words_text(line) for line in group_word_lines([word for word in words if float(word[1]) < 65])]
+    for index, line in enumerate(lines):
+        if "Logbook FOCA" in line and index + 1 < len(lines):
+            return re.sub(r"\s*\([^)]*\)", "", lines[index + 1]).strip()
+    return ""
+
+
+def year_from_words(words: list[tuple[Any, ...]]) -> int | None:
+    ordered = sorted(words, key=lambda item: (float(item[1]), float(item[0])))
+    for index, word in enumerate(ordered):
+        if clean(word[4]) == "Year:":
+            for next_word in ordered[index + 1 : index + 4]:
+                text = clean(next_word[4])
+                if re.fullmatch(r"\d{4}", text):
+                    return int(text)
+    return None
+
+
+def parse_logbook_fast(pdf_path: Path, progress_callback: ProgressCallback | None = None) -> tuple[list[Flight], str]:
+    # FOCA paper exports use a stable fixed layout. Reading positioned words is much faster than table extraction.
+    flights: list[Flight] = []
+    active_year: int | None = None
+    previous_month: int | None = None
+
+    with fitz.open(pdf_path) as pdf:
+        owner = owner_from_words(pdf[0].get_text("words")) if pdf.page_count else ""
+
+        for page_number, page in enumerate(pdf, start=1):
+            words = page.get_text("words")
+            if progress_callback:
+                progress_callback(page_number, pdf.page_count)
+            if any("FSTD Sessions" in clean(word[4]) for word in words):
+                continue
+
+            page_year = year_from_words(words)
+            if active_year is None:
+                active_year = page_year
+            elif page_year and page_year > active_year:
+                active_year = page_year
+
+            for line in group_word_lines([word for word in words if float(word[1]) > 105]):
+                day = next((to_int(word[4]) for word in line if 8 <= float(word[0]) <= 26 and to_int(word[4]) is not None), None)
+                month = next((to_int(word[4]) for word in line if 26 <= float(word[0]) <= 45 and to_int(word[4]) is not None), None)
+                if day is None or month is None or not (1 <= day <= 31 and 1 <= month <= 12):
+                    continue
+
+                y = sum(float(word[1]) for word in line) / len(line)
+                dep_code = clean(text_in_box(words, 45, 80, y - 13, y - 2)).upper()
+                arr_code = clean(text_in_box(words, 82, 116, y - 13, y - 2)).upper()
+                if not is_location_code(dep_code) or not is_location_code(arr_code):
+                    continue
+
+                if active_year is None:
+                    active_year = page_year or datetime.now().year
+                if previous_month and month < previous_month and previous_month >= 10 and month <= 3:
+                    active_year += 1
+                if page_year and page_year > active_year:
+                    active_year = page_year
+
+                remarks = clean_remarks(words_multiline_text(words_in_box(words, 675, 810, y - 13, y + 18)))
+                dep_key = place_key(dep_code, remarks, "DEP")
+                arr_key = place_key(arr_code, remarks, "ARR")
+                cross_country = is_cross_country(remarks)
+                total_minutes = minutes_from_word_boxes(words, (288, 315), (315, 330), y)
+                pic_minutes = minutes_from_word_boxes(words, (526, 542), (542, 557), y)
+
+                flights.append(
+                    Flight(
+                        date=safe_date(active_year, month, day),
+                        year=active_year,
+                        month=month,
+                        day=day,
+                        dep_key=dep_key,
+                        arr_key=arr_key,
+                        dep_code=dep_code,
+                        arr_code=arr_code,
+                        aircraft_type=clean(text_in_box(words, 118, 166, y - 13, y - 2)) or "Unknown",
+                        registration=clean(text_in_box(words, 118, 166, y + 4, y + 18)) or "Unknown",
+                        total_minutes=total_minutes,
+                        pic_minutes=pic_minutes,
+                        dual_minutes=minutes_from_word_boxes(words, (610, 624), (624, 639), y),
+                        copi_minutes=minutes_from_word_boxes(words, (568, 583), (583, 598), y),
+                        instructor_minutes=minutes_from_word_boxes(words, (642, 657), (657, 676), y),
+                        xc_minutes=total_minutes if cross_country else 0,
+                        pic_xc_minutes=pic_minutes if cross_country else 0,
+                        landings=to_int(text_in_box(words, 384, 407, y - 5, y + 5)) or 0,
+                        name_pic=clean(text_in_box(words, 330, 382, y - 5, y + 5)) or "Unknown",
+                        remarks=remarks,
+                        cross_country=cross_country,
+                        dep_time=clean(text_in_box(words, 45, 80, y + 4, y + 18)),
+                        arr_time=clean(text_in_box(words, 82, 116, y + 4, y + 18)),
+                        page=page_number,
+                    )
+                )
+
+                previous_month = month
+
+    return flights, owner
 
 
 def is_cross_country(remarks: str) -> bool:
@@ -238,7 +389,7 @@ def great_circle_nm(lat1: float, lon1: float, lat2: float, lon2: float) -> float
     return radius_nm * (2 * math.asin(math.sqrt(a)))
 
 
-def parse_logbook(pdf_path: Path) -> tuple[list[Flight], str]:
+def parse_logbook_pdfplumber(pdf_path: Path, progress_callback: ProgressCallback | None = None) -> tuple[list[Flight], str]:
     flights: list[Flight] = []
     active_year: int | None = None
     previous_month: int | None = None
@@ -246,13 +397,15 @@ def parse_logbook(pdf_path: Path) -> tuple[list[Flight], str]:
     with pdfplumber.open(str(pdf_path)) as pdf:
         owner = extract_owner(pdf)
 
+        total_pages = len(pdf.pages)
         for page_number, page in enumerate(pdf.pages, start=1):
-            page_text = page.extract_text() or ""
-            if "FSTD Sessions" in page_text:
+            table = page.extract_table() or []
+            if progress_callback:
+                progress_callback(page_number, total_pages)
+            if table_contains(table, "FSTD Sessions"):
                 continue
 
-            table = page.extract_table() or []
-            page_year = row_year(table, page_text)
+            page_year = row_year(table)
             if active_year is None:
                 active_year = page_year
             elif page_year and page_year > active_year:
@@ -278,6 +431,7 @@ def parse_logbook(pdf_path: Path) -> tuple[list[Flight], str]:
                 dep_key = place_key(dep_code, remarks, "DEP")
                 arr_key = place_key(arr_code, remarks, "ARR")
                 cross_country = is_cross_country(remarks)
+                total_minutes = minutes_from_columns(row, 11, 12)
                 pic_minutes = minutes_from_columns(row, 20, 21)
 
                 flights.append(
@@ -292,12 +446,12 @@ def parse_logbook(pdf_path: Path) -> tuple[list[Flight], str]:
                         arr_code=arr_code,
                         aircraft_type=clean(row[4]) or "Unknown",
                         registration=clean(next_row[4] if len(next_row) > 4 else "") or "Unknown",
-                        total_minutes=minutes_from_columns(row, 11, 12),
+                        total_minutes=total_minutes,
                         pic_minutes=pic_minutes,
                         dual_minutes=minutes_from_columns(row, 24, 25),
                         copi_minutes=minutes_from_columns(row, 22, 23),
                         instructor_minutes=minutes_from_columns(row, 26, 27),
-                        xc_minutes=minutes_from_columns(row, 11, 12) if cross_country else 0,
+                        xc_minutes=total_minutes if cross_country else 0,
                         pic_xc_minutes=pic_minutes if cross_country else 0,
                         landings=to_int(row[14]) or 0,
                         name_pic=clean(row[13]) or "Unknown",
@@ -312,6 +466,16 @@ def parse_logbook(pdf_path: Path) -> tuple[list[Flight], str]:
                 previous_month = month
 
     return flights, owner
+
+
+def parse_logbook(pdf_path: Path, progress_callback: ProgressCallback | None = None) -> tuple[list[Flight], str]:
+    try:
+        flights, owner = parse_logbook_fast(pdf_path, progress_callback=progress_callback)
+        if flights:
+            return flights, owner
+    except Exception:
+        pass
+    return parse_logbook_pdfplumber(pdf_path, progress_callback=progress_callback)
 
 
 def empty_metrics() -> dict[str, int]:
@@ -481,8 +645,8 @@ def summarise_flights(flights: list[Flight], owner: str = "", source_filename: s
     }
 
 
-def parse_pdf_to_summary(pdf_path: Path, source_filename: str = "") -> dict[str, Any]:
-    flights, owner = parse_logbook(pdf_path)
+def parse_pdf_to_summary(pdf_path: Path, source_filename: str = "", progress_callback: ProgressCallback | None = None) -> dict[str, Any]:
+    flights, owner = parse_logbook(pdf_path, progress_callback=progress_callback)
     if not flights:
         raise ValueError("No flights were found in this FOCA logbook export.")
     return summarise_flights(flights, owner=owner, source_filename=source_filename)
