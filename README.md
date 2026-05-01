@@ -28,7 +28,7 @@ The Ghost-ready post draft is included in [docs/ghost-blog-post-tl-logbook-dashb
 ## Quick Start
 
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
 
 Open:
@@ -49,7 +49,7 @@ Use this when deploying from a cloned repository:
 git clone https://github.com/techlotse/TL-Logbook-Dashboard.git
 cd TL-Logbook-Dashboard
 cp .env.example .env
-docker compose up -d --build
+docker compose up -d
 ```
 
 Change `HOST_PORT` in `.env` if `8082` is already in use.
@@ -81,6 +81,8 @@ Put the service behind your normal TLS reverse proxy for public hosting. Forward
 - `X-Forwarded-Proto`
 
 For the included Compose stack, the public entrypoint is the `web` service on `${HOST_PORT:-8082}`.
+
+The Compose deployment uses the published Docker Hub image, an unprivileged Nginx image, a dedicated project network, a read-only app filesystem, dropped Linux capabilities, `no-new-privileges`, `/tmp` tmpfs, and CPU/memory/PID limits.
 
 ## Configuration
 
