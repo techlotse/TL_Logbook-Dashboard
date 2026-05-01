@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TL-Logbook-Dashboard</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">TL</div>
+        <div>
+          <h1>TL-Logbook-Dashboard</h1>
+          <p id="logbookMeta">Session dashboard</p>
+        </div>
+      </div>
+
+      <form id="uploadForm" class="upload-panel">
+        <div class="upload-row">
+          <label class="file-control">
+            <span>FOCA PDF</span>
+            <input id="pdfInput" type="file" accept="application/pdf">
+          </label>
+          <button class="primary-button" type="submit">Upload</button>
+          <button class="ghost-button" id="resetButton" type="button">Clear</button>
+        </div>
+        <p class="operational-disclaimer">Not for operational use. Verify all totals against your official logbook before relying on them.</p>
+      </form>
+    </header>
+
+    <section class="status-strip" aria-live="polite">
+      <div>
+        <strong id="statusStep">Waiting</strong>
+        <span id="statusMessage">Upload a FOCA logbook PDF to start.</span>
+      </div>
+      <div class="progress-track"><span id="progressBar"></span></div>
+    </section>
+
+    <section id="emptyState" class="empty-dashboard">
+      <div>
+        <h2>Upload a FOCA logbook PDF</h2>
+        <p>No logbook is loaded for this browser session yet. Upload your FOCA export above to generate the dashboard.</p>
+      </div>
+    </section>
+
+    <main id="dashboardMain">
+      <section class="metric-grid">
+        <article class="metric-tile">
+          <span>Total Hours</span>
+          <strong id="metricTotal">0 h 00 m</strong>
+        </article>
+        <article class="metric-tile accent">
+          <span>PIC Time</span>
+          <strong id="metricPic">0 h 00 m</strong>
+        </article>
+        <article class="metric-tile green">
+          <span>Dual Time</span>
+          <strong id="metricDual">0 h 00 m</strong>
+        </article>
+        <article class="metric-tile amber">
+          <span>PIC XC</span>
+          <strong id="metricPicXc">0 h 00 m</strong>
+        </article>
+        <article class="metric-tile">
+          <span>XC Distance</span>
+          <strong id="metricXcNm">0 NM</strong>
+        </article>
+        <article class="metric-tile">
+          <span>Airports</span>
+          <strong id="metricAirports">0</strong>
+        </article>
+      </section>
+
+      <section class="map-panel">
+        <div class="section-header">
+          <div>
+            <h2>World Map</h2>
+            <p id="mapSubtitle">Airports and routes from this session.</p>
+          </div>
+          <div class="toolbar">
+            <label>
+              <span>Routes</span>
+              <select id="routeMode">
+                <option value="all">All</option>
+                <option value="xc">XC</option>
+                <option value="pic">PIC</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <div id="map"></div>
+      </section>
+
+      <section class="split-grid">
+        <article class="panel">
+          <div class="section-header">
+            <h2>Aircraft Types</h2>
+            <span class="legend"><i class="legend-pic"></i>PIC <i class="legend-dual"></i>Dual</span>
+          </div>
+          <div id="typeBars" class="bar-list"></div>
+        </article>
+
+        <article class="panel">
+          <div class="section-header">
+            <h2>Registrations</h2>
+            <span class="legend"><i class="legend-pic"></i>PIC <i class="legend-dual"></i>Dual</span>
+          </div>
+          <div id="registrationBars" class="bar-list"></div>
+        </article>
+      </section>
+
+      <section class="split-grid">
+        <article class="panel">
+          <div class="section-header">
+            <h2>Monthly Hours</h2>
+          </div>
+          <div id="monthBars" class="month-bars"></div>
+        </article>
+
+        <article class="panel">
+          <div class="section-header">
+            <h2>Name PIC</h2>
+          </div>
+          <div id="picBars" class="bar-list compact"></div>
+        </article>
+      </section>
+
+      <section class="table-grid">
+        <article class="panel">
+          <div class="section-header">
+            <h2>Aircraft Data</h2>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Total</th>
+                  <th>PIC</th>
+                  <th>Dual</th>
+                  <th>PIC XC</th>
+                </tr>
+              </thead>
+              <tbody id="typeTable"></tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="section-header">
+            <h2>Registration Data</h2>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Reg</th>
+                  <th>Total</th>
+                  <th>PIC</th>
+                  <th>Dual</th>
+                  <th>PIC XC</th>
+                </tr>
+              </thead>
+              <tbody id="registrationTable"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section class="table-grid">
+        <article class="panel">
+          <div class="section-header">
+            <h2>Top Airports</h2>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Airport</th>
+                  <th>Visits</th>
+                  <th>Landings</th>
+                  <th>Country</th>
+                </tr>
+              </thead>
+              <tbody id="airportTable"></tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="section-header">
+            <h2>Routes</h2>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Route</th>
+                  <th>Flights</th>
+                  <th>Total</th>
+                  <th>XC</th>
+                  <th>NM</th>
+                </tr>
+              </thead>
+              <tbody id="routeTable"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section class="panel">
+        <div class="section-header">
+          <h2>Recent Flights</h2>
+          <span id="qualityStatus" class="quality-pill"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Route</th>
+                <th>Aircraft</th>
+                <th>Reg</th>
+                <th>Total</th>
+                <th>PIC</th>
+                <th>Dual</th>
+                <th>Name PIC</th>
+              </tr>
+            </thead>
+            <tbody id="recentTable"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div>
+        <strong>TL-Logbook-Dashboard v1.0.0</strong>
+        <span>Personal analytics only. This tool is not certified, audited, or approved for flight operations, licensing, currency, or legal records.</span>
+      </div>
+      <nav aria-label="Legal links">
+        <a href="/legal">Legal Notice & Privacy</a>
+        <a href="https://techlotse.cloud/impressum/" rel="noopener noreferrer">Impressum</a>
+      </nav>
+    </footer>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

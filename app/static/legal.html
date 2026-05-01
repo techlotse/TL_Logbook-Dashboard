@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Legal Notice & Privacy - TL-Logbook-Dashboard</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="app-shell legal-page">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">TL</div>
+        <div>
+          <h1>Legal Notice & Privacy</h1>
+          <p>TL-Logbook-Dashboard v1.0.0</p>
+        </div>
+      </div>
+      <a class="ghost-button legal-back" href="/">Back to dashboard</a>
+    </header>
+
+    <main>
+      <section class="legal-hero">
+        <h1>Legal Notice & Privacy</h1>
+        <p>This page summarizes the legal, privacy, cookie, and operational-use notices for a hosted TL-Logbook-Dashboard instance. It is intended as a practical hosting template and should be reviewed for your exact operator, jurisdiction, and infrastructure.</p>
+      </section>
+
+      <section class="legal-section">
+        <h2>Operator / Impressum</h2>
+        <p>The operator details are provided in the Techlotse Impressum:</p>
+        <p><a href="https://techlotse.cloud/impressum/" rel="noopener noreferrer">https://techlotse.cloud/impressum/</a></p>
+      </section>
+
+      <section class="legal-section">
+        <h2>Operational Disclaimer</h2>
+        <p>TL-Logbook-Dashboard is a personal analytics and visualization tool. It is not certified, audited, approved, or intended for operational flight planning, flight safety decisions, licensing, recency, currency, training records, legal record keeping, maintenance decisions, insurance submissions, or regulatory compliance.</p>
+        <p>Always verify totals, routes, PIC, dual, XC, and PIC XC values against your official logbook and applicable aviation rules before relying on them.</p>
+      </section>
+
+      <section class="legal-section">
+        <h2>Privacy Notice</h2>
+        <p>Uploaded logbook PDFs may contain personal data, flight history, aircraft registrations, instructor names, airport usage, and other sensitive aviation information. The application stores uploaded PDFs and generated summaries only inside a server-side browser session directory for the configured session lifetime.</p>
+        <ul>
+          <li>Default retention: 24 hours, controlled by <code>SESSION_TTL_SECONDS</code>.</li>
+          <li>Users can clear their active session from the dashboard.</li>
+          <li>No account system, analytics tracking, advertising tracking, or marketing cookies are included by default.</li>
+          <li>Logbook data is processed to display dashboard metrics, charts, tables, airports, and routes.</li>
+        </ul>
+        <p>If you host this service publicly, configure transport security, access controls, backups, logs, and retention to match your own data-protection obligations.</p>
+      </section>
+
+      <section class="legal-section">
+        <h2>Cookies</h2>
+        <p>The application uses one necessary HTTP-only session cookie to keep each browser session isolated from other active users. This cookie is required for the service to work and is not used for advertising or cross-site tracking.</p>
+      </section>
+
+      <section class="legal-section">
+        <h2>External Services</h2>
+        <p>The dashboard uses Leaflet for maps and displays map tiles from external tile providers. Depending on deployment configuration, those providers may receive technical request data such as IP address, user agent, requested tiles, and timestamps. For stricter privacy requirements, self-host third-party assets and use a compliant tile provider or self-hosted tile server.</p>
+      </section>
+
+      <section class="legal-section">
+        <h2>Copyright, License, And Reuse</h2>
+        <p>The software is provided under a personal-use-only license. Commercial hosting, redistribution, resale, sublicensing, or use as a paid service is not permitted unless Techlotse grants separate written permission.</p>
+      </section>
+
+      <section class="legal-section">
+        <h2>No Warranty / Limitation Of Liability</h2>
+        <p>The software and displayed information are provided as-is. No guarantee is made that parsed data is complete, correct, current, available, uninterrupted, secure, or suitable for any particular purpose. Use of the application is at your own risk.</p>
+      </section>
+
+      <section class="legal-section">
+        <h2>Contact</h2>
+        <p>For operator contact details, privacy requests, or legal questions, use the contact information listed in the <a href="https://techlotse.cloud/impressum/" rel="noopener noreferrer">Techlotse Impressum</a>.</p>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div>
+        <strong>TL-Logbook-Dashboard v1.0.0</strong>
+        <span>Personal analytics only. Not for operational use.</span>
+      </div>
+      <nav aria-label="Legal links">
+        <a href="/">Dashboard</a>
+        <a href="https://techlotse.cloud/impressum/" rel="noopener noreferrer">Impressum</a>
+      </nav>
+    </footer>
+  </div>
+</body>
+</html>

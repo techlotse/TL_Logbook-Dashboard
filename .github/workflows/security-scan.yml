@@ -1,0 +1,141 @@
+name: Security Scan
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+    paths:
+      - "app/**"
+      - "docker-compose.yml"
+      - "nginx/**"
+      - ".github/workflows/security-scan.yml"
+  schedule:
+    - cron: "23 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  IMAGE_NAME: techlotse/tl-logbook-dashboard
+  SCAN_TAG: techlotse/tl-logbook-dashboard:security-scan-${{ github.sha }}
+  TRIVY_DISABLE_VEX_NOTICE: true
+
+jobs:
+  repository:
+    name: Repository scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate repository security report
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: json
+          output: trivy-repository-report.json
+          exit-code: 0
+
+      - name: Upload repository security report
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-repository-report
+          path: trivy-repository-report.json
+          retention-days: 30
+
+      - name: Enforce repository security gate
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: 1
+
+  container:
+    name: Container image scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build local image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./app
+          load: true
+          pull: true
+          no-cache: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+          tags: ${{ env.SCAN_TAG }}
+
+      - name: Generate container security report
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.SCAN_TAG }}
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: json
+          output: trivy-container-report.json
+          exit-code: 0
+
+      - name: Upload container security report
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-container-report
+          path: trivy-container-report.json
+          retention-days: 30
+
+      - name: Enforce container security gate
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.SCAN_TAG }}
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: 1
+
+  published-image:
+    name: Published latest scan
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Generate published image security report
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: docker.io/${{ env.IMAGE_NAME }}:latest
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: json
+          output: trivy-published-image-report.json
+          exit-code: 0
+
+      - name: Upload published image security report
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-published-image-report
+          path: trivy-published-image-report.json
+          retention-days: 30
+
+      - name: Enforce published image security gate
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: docker.io/${{ env.IMAGE_NAME }}:latest
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: 1

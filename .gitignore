@@ -1,0 +1,20 @@
+# runtime
+data/
+.test-data*/
+.codex_deps/
+.verify/
+.env
+
+# python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# editors
+.vscode/
+.idea/
+
+# output
+*.html
+!app/static/*.html

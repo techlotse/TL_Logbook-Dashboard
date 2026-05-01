@@ -1,0 +1,5 @@
+airportsdata==20260315
+fastapi==0.136.0
+pdfplumber==0.11.9
+python-multipart==0.0.22
+uvicorn[standard]==0.32.1

@@ -1,0 +1,38 @@
+Techlotse Personal Use Only License v1.0
+
+Copyright (c) 2026 Techlotse
+
+Permission is granted to use, copy, and modify this software for personal,
+non-commercial use only, subject to the conditions below.
+
+You may:
+
+- Run the software for your own personal logbook analysis.
+- Modify the software for your own personal use.
+- Make private backup copies.
+
+You may not, without prior written permission from Techlotse:
+
+- Use the software for commercial purposes.
+- Offer the software as a hosted, paid, public, or managed service.
+- Sell, rent, sublicense, redistribute, or repackage the software.
+- Publish modified or unmodified container images derived from the software.
+- Use the software for operational aviation, regulatory, licensing, legal,
+  insurance, training-record, maintenance, or safety-critical purposes.
+
+No Warranty
+
+The software is provided "as is", without warranty of any kind, express or
+implied, including but not limited to warranties of merchantability, fitness
+for a particular purpose, accuracy, availability, non-infringement, or
+regulatory suitability. Use of the software is at your own risk.
+
+Limitation Of Liability
+
+In no event shall Techlotse or contributors be liable for any claim, damages,
+loss, or other liability arising from or related to the software or its use,
+including incorrect parsed data, incorrect calculations, missed flights,
+privacy incidents, service interruption, or reliance on dashboard output.
+
+Separate commercial, redistribution, or hosting rights require a separate
+written license from Techlotse.
